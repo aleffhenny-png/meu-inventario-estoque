@@ -1,8 +1,9 @@
-// --- INICIALIZAÇÃO CORRETA E SEGURA ---
+// --- INICIALIZAÇÃO ---
 let materiais = JSON.parse(localStorage.getItem('INV_MATERIAIS_V2'));
 
-// Se não houver dados salvos, carrega a lista padrão (PADRAO precisa vir do seu dados.js)
-if (!Array.isArray(materiais) || materiais.length === 0) {
+const dadosCorrompidos = !Array.isArray(materiais) || (materiais.length > 0 && materiais[0].qtd === undefined);
+
+if (dadosCorrompidos) {
     materiais = (typeof PADRAO !== 'undefined') ? [...PADRAO] : []; 
     localStorage.setItem('INV_MATERIAIS_V2', JSON.stringify(materiais));
 }
@@ -40,7 +41,7 @@ function switchTab(tabId) {
     if (tabId === 'tab-operacao') setTimeout(() => document.getElementById('scannerInput').focus(), 50);
 }
 
-// --- LÓGICA PRINCIPAL DO INVENTÁRIO ---
+// --- LÓGICA PRINCIPAL ---
 function render() {
     const nomeOp = document.getElementById('nomeOperador');
     if(nomeOp) nomeOp.innerText = sessionStorage.getItem('usuarioLogado') || 'Operador';
@@ -68,15 +69,9 @@ function render() {
 
         let st = { t: 'OK', c: 'ok' };
         
-        if (qtd <= min) { 
-            st = { t: 'Crítico', c: 'critico' }; 
-            criticos++; 
-        } else if (qtd <= pp) { 
-            st = { t: 'Comprar', c: 'comprar' }; 
-            comprar++; 
-        } else { 
-            okCount++; 
-        }
+        if (qtd <= min) { st = { t: 'Crítico', c: 'critico' }; criticos++; }
+        else if (qtd <= pp) { st = { t: 'Comprar', c: 'comprar' }; comprar++; }
+        else { okCount++; }
 
         select.innerHTML += `<option value="${idx}">[${m.codigo}] ${m.nome}</option>`;
         tbody.innerHTML += `<tr>
@@ -95,9 +90,7 @@ function render() {
     
     localStorage.setItem('INV_MATERIAIS_V2', JSON.stringify(materiais));
     
-    if (typeof renderChart === 'function') {
-        renderChart(okCount, comprar, criticos);
-    }
+    if (typeof renderChart === 'function') renderChart(okCount, comprar, criticos);
 }
 
 function movimentar(idx, tipo, qtd) {
@@ -110,19 +103,16 @@ function movimentar(idx, tipo, qtd) {
     render();
 }
 
-// --- EVENTOS DE MOVIMENTAÇÃO ---
-const scannerEl = document.getElementById('scannerInput');
-if (scannerEl) {
-    scannerEl.addEventListener('keydown', function(e) {
+// --- EVENTOS ---
+const scanInput = document.getElementById('scannerInput');
+if (scanInput) {
+    scanInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const codigoBipado = this.value.trim();
             const idx = materiais.findIndex(x => x.codigo === codigoBipado);
-            if (idx !== -1) { 
-                movimentar(idx, 'SAIDA', 1); 
-            } else { 
-                toast('Item não cadastrado com o código: ' + codigoBipado, 'error'); 
-            }
+            if (idx !== -1) { movimentar(idx, 'SAIDA', 1); }
+            else { toast('Item não cadastrado: ' + codigoBipado, 'error'); }
             this.value = '';
         }
     });
@@ -133,13 +123,10 @@ function handleManual(e) {
     const idx = document.getElementById('movMaterial').value;
     const tipo = document.getElementById('movTipo').value;
     const qtd = parseInt(document.getElementById('movQtd').value);
-    if (idx !== "") { 
-        movimentar(parseInt(idx), tipo, qtd); 
-        e.target.reset(); 
-    }
+    if (idx !== "") { movimentar(parseInt(idx), tipo, qtd); e.target.reset(); }
 }
 
-// --- GESTÃO DE USUÁRIOS (Local robusto) ---
+// --- USUÁRIOS ---
 function handleCadastroUsuario(e) {
     e.preventDefault();
     const novoUsuario = {
@@ -201,7 +188,6 @@ function renderChart(ok, comp, crit) {
 
 window.onload = () => { 
     render(); 
-    renderUsuarios();
-    const scanInput = document.getElementById('scannerInput');
+    renderUsuarios(); 
     if(scanInput) scanInput.focus(); 
 };

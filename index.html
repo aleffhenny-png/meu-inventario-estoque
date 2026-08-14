@@ -43,15 +43,7 @@
     </div>
 
     <script>
-        // Banco de dados inicial de usuários corporativos
-        const BASE_USUARIOS = [
-            { user: "admin", pass: "123", nome: "Supervisor Administrativo", cracha: "CRAC-9999", role: "admin" },
-            { user: "operador1", pass: "abc", nome: "Operador Turno A", cracha: "CRAC-1111", role: "operador" }
-        ];
-
-        if (!localStorage.getItem('INV_USUARIOS_V2')) {
-            localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(BASE_USUARIOS));
-        }
+        const API_URL = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
 
         function mostrarErro(msg) {
             const container = document.getElementById('toastContainer');
@@ -62,40 +54,52 @@
             setTimeout(() => toast.remove(), 3500);
         }
 
-        // Login Manual
-        document.getElementById('formLogin').addEventListener('submit', (e) => {
+        // Login Manual via API
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
             e.preventDefault();
             const u = document.getElementById('loginUser').value.trim();
             const p = document.getElementById('loginPassword').value;
             
-            const listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2'));
-            const conta = listaUsuarios.find(x => x.user === u && x.pass === p);
-            
-            if (conta) {
-                sessionStorage.setItem('usuarioLogado', conta.nome);
-                sessionStorage.setItem('usuarioRole', conta.role);
-                window.location.href = 'dashboard.html';
-            } else {
-                mostrarErro('Usuário ou senha inválidos!');
-            }
-        });
-
-        // Login por Bipagem de Crachá
-        const badgeInput = document.getElementById('badgeLoginInput');
-        badgeInput.focus();
-        
-        badgeInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2'));
-                const conta = listaUsuarios.find(x => x.cracha === this.value.trim());
+            try {
+                const response = await fetch(API_URL);
+                const listaUsuarios = await response.json();
+                const conta = listaUsuarios.find(x => x.user === u && x.pass === p);
+                
                 if (conta) {
                     sessionStorage.setItem('usuarioLogado', conta.nome);
                     sessionStorage.setItem('usuarioRole', conta.role);
                     window.location.href = 'dashboard.html';
                 } else {
-                    mostrarErro('Crachá não reconhecido.');
-                    this.value = '';
+                    mostrarErro('Usuário ou senha inválidos!');
+                }
+            } catch (err) {
+                mostrarErro('Erro ao conectar com o banco de dados.');
+            }
+        });
+
+        // Login por Bipagem de Crachá via API
+        const badgeInput = document.getElementById('badgeLoginInput');
+        badgeInput.focus();
+        
+        badgeInput.addEventListener('keydown', async function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const codigoDigitado = this.value.trim();
+                try {
+                    const response = await fetch(API_URL);
+                    const listaUsuarios = await response.json();
+                    const conta = listaUsuarios.find(x => x.cracha === codigoDigitado);
+                    
+                    if (conta) {
+                        sessionStorage.setItem('usuarioLogado', conta.nome);
+                        sessionStorage.setItem('usuarioRole', conta.role);
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        mostrarErro('Crachá não reconhecido.');
+                        this.value = '';
+                    }
+                } catch (err) {
+                    mostrarErro('Erro ao validar o crachá.');
                 }
             }
         });

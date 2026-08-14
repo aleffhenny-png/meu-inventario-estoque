@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3M - Acesso ao Sistema</title>
+    <!-- O ?v=2 força o navegador a ler o CSS novo sem travar no antigo -->
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body class="login-body">
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="login-card">
+        <!-- Logo Oficial Atualizada -->
+        <div class="logo-container">
+            <img src="https://tse4.mm.bing.net/th/id/OIP.FUXUULi5NRfSiATHJrBPewHaD6?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="3M Logo" class="logo-3m">
+        </div>
+
+        <h2>Controle de Inventário</h2>
+        <p>Aproxime seu crachá do leitor ou use a conta manual</p>
+        
+        <!-- MODO LEITOR ÓPTICO -->
+        <div class="scanner-input-wrapper">
+            <label style="font-size: 0.75rem; font-weight: bold; color: var(--primary); display: block; margin-bottom: 8px;">🪪 AGUARDANDO BIPAGEM DE CRACHÁ</label>
+            <input type="password" id="badgeLoginInput" class="form-control" placeholder="Passe o crachá..." autocomplete="off" style="text-align: center;">
+        </div>
+
+        <div style="text-align: center; margin: 15px 0; color: var(--text-muted); font-size: 0.75rem; font-weight: bold; letter-spacing: 0.5px;">— OU ENTRADA MANUAL —</div>
+
+        <!-- FORMULÁRIO MANUAL -->
+        <form id="formLogin">
+            <div class="form-group">
+                <label for="loginUser">Matrícula / Usuário</label>
+                <input type="text" id="loginUser" class="form-control" placeholder="Ex: login.usuario" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Senha</label>
+                <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn">Autenticar no Painel</button>
+        </form>
+    </div>
+
+    <script>
+        // Banco de dados inicial de usuários corporativos
+        const BASE_USUARIOS = [
+            { user: "admin", pass: "123", nome: "Supervisor Administrativo", cracha: "CRAC-9999", role: "admin" },
+            { user: "operador1", pass: "abc", nome: "Operador Turno A", cracha: "CRAC-1111", role: "operador" }
+        ];
+
+        if (!localStorage.getItem('INV_USUARIOS_V2')) {
+            localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(BASE_USUARIOS));
+        }
+
+        function mostrarErro(msg) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast error';
+            toast.innerText = `🛑 ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        // Login Manual
+        document.getElementById('formLogin').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPassword').value;
+            
+            const listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2'));
+            const conta = listaUsuarios.find(x => x.user === u && x.pass === p);
+            
+            if (conta) {
+                sessionStorage.setItem('usuarioLogado', conta.nome);
+                sessionStorage.setItem('usuarioRole', conta.role);
+                window.location.href = 'dashboard.html';
+            } else {
+                mostrarErro('Usuário ou senha inválidos!');
+            }
+        });
+
+        // Login por Bipagem de Crachá
+        const badgeInput = document.getElementById('badgeLoginInput');
+        badgeInput.focus();
+        
+        badgeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2'));
+                const conta = listaUsuarios.find(x => x.cracha === this.value.trim());
+                if (conta) {
+                    sessionStorage.setItem('usuarioLogado', conta.nome);
+                    sessionStorage.setItem('usuarioRole', conta.role);
+                    window.location.href = 'dashboard.html';
+                } else {
+                    mostrarErro('Crachá não reconhecido.');
+                    this.value = '';
+                }
+            }
+        });
+
+        // Garante foco contínuo no leitor de crachá
+        window.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                badgeInput.focus();
+            }
+        });
+    </script>
+</body>
+</html>

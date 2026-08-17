@@ -10,11 +10,13 @@ if (dadosCorrompidos) {
 
 let chart = null;
 let currentTabId = 'tab-operacao';
-const API_URL = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
 
-// --- FUNÇÕES DE HISTÓRICO (COM NUVEM) ---
+// --- ENDPOINTS DA NUVEM (SHEETDB) ---
+const API_URL_USUARIOS = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
+const API_URL_HISTORICO = 'https://sheetdb.io/api/v1/tz5nrqru4mjab';
+
+// --- FUNÇÕES DE HISTÓRICO (COM NUVEM E SINCRONIZAÇÃO) ---
 async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
-    let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
     const novoRegistro = {
         data: new Date().toLocaleString(),
         operador: sessionStorage.getItem('usuarioLogado') || 'Desconhecido',
@@ -24,15 +26,16 @@ async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
         obs: obs
     };
     
-    // Salva localmente primeiro para exibição imediata
+    // Salva localmente para exibição imediata
+    let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
     historico.unshift(novoRegistro);
     if (historico.length > 50) historico.pop();
     localStorage.setItem('INV_HISTORICO_V2', JSON.stringify(historico));
     renderHistorico();
 
-    // Tenta enviar para a planilha do Google Sheets (caso queira uma aba de histórico separada, você pode usar um endpoint próprio ou focar na mesma)
+    // Envia o registro para a aba de Histórico na nuvem
     try {
-        await fetch(API_URL, {
+        await fetch(API_URL_HISTORICO, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -41,18 +44,22 @@ async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
             body: JSON.stringify({ data: [novoRegistro] })
         });
     } catch (err) {
-        console.error('Erro ao sincronizar histórico na nuvem:', err);
+        console.error('Erro ao salvar histórico na nuvem:', err);
     }
 }
 
 async function carregarHistoricoNuvem() {
     try {
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL_HISTORICO);
         const dadosNuvem = await response.json();
-        // Se a sua planilha misturar usuários e histórico na mesma tabela, podemos filtrar ou usar um endpoint dedicado.
-        // O ideal para o histórico é ter um segundo endpoint no SheetDB apontando para uma aba "Historico" na sua planilha, se desejar separar 100%.
+        if (Array.isArray(dadosNuvem) && dadosNuvem.length > 0) {
+            // Inverte para manter os mais recentes no topo, limitando a 50 registros
+            const historicoFormatado = dadosNuvem.reverse().slice(0, 50);
+            localStorage.setItem('INV_HISTORICO_V2', JSON.stringify(historicoFormatado));
+            renderHistorico();
+        }
     } catch (err) {
-        console.error('Erro ao buscar histórico da nuvem');
+        console.error('Erro ao carregar histórico da nuvem, exibindo local.');
     }
 }
 
@@ -105,11 +112,13 @@ function switchTab(tabId) {
     const btns = document.querySelectorAll('.tab-btn');
     if (tabId === 'tab-operacao') btns[0].classList.add('active');
     if (tabId === 'tab-posicao') btns[1].classList.add('active');
-    if (tabId === 'tab-historico') btns[2].classList.add('active');
+    if (tabId === 'tab-historico') {
+        btns[2].classList.add('active');
+        carregarHistoricoNuvem(); // Atualiza da nuvem ao abrir a aba
+    }
     if (tabId === 'tab-cadastro') btns[3].classList.add('active');
 
     if (tabId === 'tab-operacao') setTimeout(() => document.getElementById('scannerInput').focus(), 50);
-    if (tabId === 'tab-historico') renderHistorico();
 }
 
 // --- LÓGICA PRINCIPAL ---
@@ -229,7 +238,7 @@ async function handleCadastroUsuario(e) {
     localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
 
     try {
-        const response = await fetch(API_URL, {
+        const response = await fetch(API_URL_USUARIOS, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -292,5 +301,6 @@ window.onload = () => {
     render(); 
     renderUsuarios(); 
     renderHistorico(); 
+    carregarHistoricoNuvem(); // Baixa o histórico atualizado da nuvem ao iniciar
     if(scanInput) scanInput.focus(); 
 };

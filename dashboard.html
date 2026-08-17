@@ -31,7 +31,7 @@
             <button onclick="sessionStorage.clear(); window.location.href='index.html'" class="btn" style="background-color: #374151; color: white; width: auto; padding: 8px 16px;">Logoff</button>
         </header>
 
-        <!-- MENU DE ABAS (Com Histórico Adicionado) -->
+        <!-- MENU DE ABAS -->
         <div class="tab-menu">
             <button class="tab-btn active" id="btnTabOperacao" onclick="switchTab('tab-operacao')">📥 Movimentação & Gráficos</button>
             <button class="tab-btn" id="btnTabPosicao" onclick="switchTab('tab-posicao')">📋 Posição Atual do Estoque</button>
@@ -41,7 +41,7 @@
 
         <!-- ABA 1: OPERAÇÃO E LANÇAMENTOS -->
         <div id="tab-operacao" class="tab-content active">
-            <!-- CARDS DE CONTROLE COM BLOCOS INTERATIVOS (HOVER) -->
+            <!-- CARDS DE CONTROLE -->
             <div class="dashboard-grid">
                 
                 <div class="card" style="border-top: 4px solid #374151;">
@@ -93,11 +93,17 @@
                             <select id="movTipo" class="form-control">
                                 <option value="ENTRADA">📥 Entrada (+) Alimentar Estoque</option>
                                 <option value="SAIDA">📤 Saída (-) Consumo na Linha</option>
+                                <option value="SOLICITACAO">🛒 Solicitação de Compra (Aviso)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Quantidade de Unidades</label>
                             <input type="number" id="movQtd" class="form-control" min="1" placeholder="Ex: 5" required>
+                        </div>
+                        <!-- CAMPO DE COMENTÁRIO/OBSERVAÇÃO ADICIONADO -->
+                        <div class="form-group">
+                            <label for="movObs">Observação / Comentário (Opcional)</label>
+                            <input type="text" id="movObs" class="form-control" placeholder="Ex: Solicitação de compra enviada ao almoxarifado...">
                         </div>
                         <button type="submit" class="btn">Confirmar Movimentação</button>
                     </form>
@@ -131,7 +137,7 @@
             </div>
         </div>
 
-        <!-- ABA 3: HISTÓRICO DE MOVIMENTAÇÕES (NOVO) -->
+        <!-- ABA 3: HISTÓRICO DE MOVIMENTAÇÕES -->
         <div id="tab-historico" class="tab-content">
             <div class="panel" style="margin-top: 0; padding: 20px;">
                 <h2>📜 Histórico Recente de Movimentações</h2>

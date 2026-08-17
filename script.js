@@ -12,14 +12,15 @@ let chart = null;
 let currentTabId = 'tab-operacao';
 
 // --- FUNÇÕES DE HISTÓRICO ---
-function salvarNoHistorico(itemNome, tipo, qtd) {
+function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
     let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
     const novoRegistro = {
         data: new Date().toLocaleString(),
         operador: sessionStorage.getItem('usuarioLogado') || 'Desconhecido',
         item: itemNome,
         tipo: tipo,
-        qtd: qtd
+        qtd: qtd,
+        obs: obs
     };
     
     historico.unshift(novoRegistro);
@@ -36,11 +37,19 @@ function renderHistorico() {
     tbody.innerHTML = '';
     
     historico.forEach(h => {
+        // Exibe o comentário formatado se houver preenchimento
+        const observacaoTexto = h.obs ? `<br><small style="color: #64748b;">💬 ${h.obs}</small>` : '';
+        
+        // Define a cor de destaque do tipo de operação
+        let corTipo = '#10b981'; // Verde para Entrada
+        if (h.tipo === 'SAIDA') corTipo = '#ef4444'; // Vermelho para Saída
+        if (h.tipo === 'SOLICITACAO') corTipo = '#f59e0b'; // Amarelo/Laranja para Solicitação
+
         tbody.innerHTML += `<tr>
             <td>${h.data}</td>
             <td>${h.operador}</td>
-            <td>${h.item}</td>
-            <td style="color: ${h.tipo === 'ENTRADA' ? '#10b981' : '#ef4444'}; font-weight: bold;">${h.tipo}</td>
+            <td>${h.item} ${observacaoTexto}</td>
+            <td style="color: ${corTipo}; font-weight: bold;">${h.tipo}</td>
             <td>${h.qtd}</td>
         </tr>`;
     });
@@ -130,15 +139,19 @@ function render() {
     if (typeof renderChart === 'function') renderChart(okCount, comprar, criticos);
 }
 
-function movimentar(idx, tipo, qtd) {
+function movimentar(idx, tipo, qtd, obs = '') {
     if (tipo === 'SAIDA' && materiais[idx].qtd < qtd) {
         toast('Estoque insuficiente!', 'error');
         return;
     }
-    materiais[idx].qtd += (tipo === 'ENTRADA' ? qtd : -qtd);
     
-    salvarNoHistorico(materiais[idx].nome, tipo, qtd);
-    toast('Movimentação salva com sucesso!');
+    // Se for solicitação de compra, apenas registra no histórico sem alterar o saldo do estoque físico
+    if (tipo !== 'SOLICITACAO') {
+        materiais[idx].qtd += (tipo === 'ENTRADA' ? qtd : -qtd);
+    }
+    
+    salvarNoHistorico(materiais[idx].nome, tipo, qtd, obs);
+    toast('Registro salvo com sucesso!');
     render();
 }
 
@@ -150,7 +163,7 @@ if (scanInput) {
             e.preventDefault();
             const codigoBipado = this.value.trim();
             const idx = materiais.findIndex(x => x.codigo === codigoBipado);
-            if (idx !== -1) { movimentar(idx, 'SAIDA', 1); }
+            if (idx !== -1) { movimentar(idx, 'SAIDA', 1, 'Bipado via Scanner'); }
             else { toast('Item não cadastrado: ' + codigoBipado, 'error'); }
             this.value = '';
         }
@@ -161,8 +174,13 @@ function handleManual(e) {
     e.preventDefault();
     const idx = document.getElementById('movMaterial').value;
     const tipo = document.getElementById('movTipo').value;
-    const qtd = parseInt(document.getElementById('movQtd').value);
-    if (idx !== "") { movimentar(parseInt(idx), tipo, qtd); e.target.reset(); }
+    const qtd = parseInt(document.getElementById('movQtd').value) || 0;
+    const obs = document.getElementById('movObs') ? document.getElementById('movObs').value.trim() : '';
+    
+    if (idx !== "") { 
+        movimentar(parseInt(idx), tipo, qtd, obs); 
+        e.target.reset(); 
+    }
 }
 
 // --- USUÁRIOS (COM INTEGRAÇÃO SHEETDB) ---

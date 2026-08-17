@@ -10,9 +10,10 @@ if (dadosCorrompidos) {
 
 let chart = null;
 let currentTabId = 'tab-operacao';
+const API_URL = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
 
-// --- FUNÇÕES DE HISTÓRICO ---
-function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
+// --- FUNÇÕES DE HISTÓRICO (COM NUVEM) ---
+async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
     let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
     const novoRegistro = {
         data: new Date().toLocaleString(),
@@ -23,10 +24,36 @@ function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
         obs: obs
     };
     
+    // Salva localmente primeiro para exibição imediata
     historico.unshift(novoRegistro);
     if (historico.length > 50) historico.pop();
     localStorage.setItem('INV_HISTORICO_V2', JSON.stringify(historico));
     renderHistorico();
+
+    // Tenta enviar para a planilha do Google Sheets (caso queira uma aba de histórico separada, você pode usar um endpoint próprio ou focar na mesma)
+    try {
+        await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: [novoRegistro] })
+        });
+    } catch (err) {
+        console.error('Erro ao sincronizar histórico na nuvem:', err);
+    }
+}
+
+async function carregarHistoricoNuvem() {
+    try {
+        const response = await fetch(API_URL);
+        const dadosNuvem = await response.json();
+        // Se a sua planilha misturar usuários e histórico na mesma tabela, podemos filtrar ou usar um endpoint dedicado.
+        // O ideal para o histórico é ter um segundo endpoint no SheetDB apontando para uma aba "Historico" na sua planilha, se desejar separar 100%.
+    } catch (err) {
+        console.error('Erro ao buscar histórico da nuvem');
+    }
 }
 
 function renderHistorico() {
@@ -37,13 +64,11 @@ function renderHistorico() {
     tbody.innerHTML = '';
     
     historico.forEach(h => {
-        // Exibe o comentário formatado se houver preenchimento
         const observacaoTexto = h.obs ? `<br><small style="color: #64748b;">💬 ${h.obs}</small>` : '';
         
-        // Define a cor de destaque do tipo de operação
         let corTipo = '#10b981'; // Verde para Entrada
         if (h.tipo === 'SAIDA') corTipo = '#ef4444'; // Vermelho para Saída
-        if (h.tipo === 'SOLICITACAO') corTipo = '#f59e0b'; // Amarelo/Laranja para Solicitação
+        if (h.tipo === 'SOLICITACAO') corTipo = '#f59e0b'; // Amarelo para Solicitação
 
         tbody.innerHTML += `<tr>
             <td>${h.data}</td>
@@ -145,7 +170,6 @@ function movimentar(idx, tipo, qtd, obs = '') {
         return;
     }
     
-    // Se for solicitação de compra, apenas registra no histórico sem alterar o saldo do estoque físico
     if (tipo !== 'SOLICITACAO') {
         materiais[idx].qtd += (tipo === 'ENTRADA' ? qtd : -qtd);
     }
@@ -205,7 +229,6 @@ async function handleCadastroUsuario(e) {
     localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
 
     try {
-        const API_URL = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {

@@ -2,62 +2,209 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3M - Controle de Inventário</title>
+    <!-- Dependência de Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
-    <script>if (!sessionStorage.getItem('usuarioLogado')) window.location.href = 'index.html';</script>
+    <script>
+        // Trava de segurança contra acessos sem login
+        if (!sessionStorage.getItem('usuarioLogado')) { window.location.href = 'index.html'; }
+    </script>
+
     <div class="toast-container" id="toastContainer"></div>
+
     <div class="container">
+        <!-- CABEÇALHO CORPORATIVO -->
         <header>
             <div class="brand-wrapper">
-                <img src="https://tse4.mm.bing.net/th/id/OIP.FUXUULi5NRfSiATHJrBPewHaD6?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="3M" class="logo-3m">
-                <div><h1>Controle de Inventário</h1><div style="font-size: 0.85rem;">Operador: <span id="nomeOperador" style="font-weight: bold;">---</span></div></div>
+                <img src="https://tse4.mm.bing.net/th/id/OIP.FUXUULi5NRfSiATHJrBPewHaD6?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="3M Logo" class="logo-3m">
+                <div style="border-left: 2px solid var(--border); padding-left: 20px;">
+                    <h1 style="margin: 0; font-size: 1.6rem; color: var(--text-main); font-weight: 800; letter-spacing: -0.5px;">Controle de Inventário</h1>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+                        Operador: <span id="nomeOperador" style="font-weight: bold; color: var(--primary);">---</span>
+                    </div>
+                </div>
             </div>
-            <button onclick="sessionStorage.clear(); window.location.href='index.html'" class="btn" style="background:#374151;">Logoff</button>
+            <button onclick="sessionStorage.clear(); window.location.href='index.html'" class="btn" style="background-color: #374151; color: white; width: auto; padding: 8px 16px;">Logoff</button>
         </header>
 
+        <!-- MENU DE ABAS (Com Histórico Adicionado) -->
         <div class="tab-menu">
-            <button class="tab-btn active" onclick="switchTab('tab-operacao')">📥 Movimentação</button>
-            <button class="tab-btn" onclick="switchTab('tab-posicao')">📋 Posição</button>
-            <button class="tab-btn" onclick="switchTab('tab-historico')">📜 Histórico</button>
-            <button class="tab-btn" id="btnTabCadastro" onclick="switchTab('tab-cadastro')" style="display: none;">👥 Colaboradores</button>
+            <button class="tab-btn active" id="btnTabOperacao" onclick="switchTab('tab-operacao')">📥 Movimentação & Gráficos</button>
+            <button class="tab-btn" id="btnTabPosicao" onclick="switchTab('tab-posicao')">📋 Posição Atual do Estoque</button>
+            <button class="tab-btn" id="btnTabHistorico" onclick="switchTab('tab-historico')">📜 Histórico de Movimentações</button>
+            <button class="tab-btn" id="btnTabCadastro" onclick="switchTab('tab-cadastro')" style="display: none;">👥 Cadastro de Colaboradores</button>
         </div>
 
+        <!-- ABA 1: OPERAÇÃO E LANÇAMENTOS -->
         <div id="tab-operacao" class="tab-content active">
+            <!-- CARDS DE CONTROLE COM BLOCOS INTERATIVOS (HOVER) -->
             <div class="dashboard-grid">
-                <div class="card"><h3>Total</h3><div class="value" id="cardTotal">0</div></div>
-                <div class="card critico"><h3>Crítico</h3><div class="value" id="cardCritico">0</div></div>
-                <div class="card alerta"><h3>Pedido</h3><div class="value" id="cardComprar">0</div></div>
+                
+                <div class="card" style="border-top: 4px solid #374151;">
+                    <h3>Total de Itens</h3>
+                    <div class="value" id="cardTotal">0</div>
+                    <div class="card-details">
+                        <p><strong>📦 Em Operação:</strong> Unidades prontas para uso.</p>
+                        <p><strong>🗂️ Categorias:</strong> Componentes de fixação e insumos.</p>
+                        <p style="font-size: 0.7rem; color: #A1A1AA; margin-top: 5px;">Somatório total físico em galpão.</p>
+                    </div>
+                </div>
+
+                <div class="card critico" style="border-top: 4px solid var(--danger);">
+                    <h3>Estoque Crítico</h3>
+                    <div class="value" id="cardCritico">0</div>
+                    <div class="card-details" style="border-left-color: var(--danger);">
+                        <p><strong>🚨 Atenção Máxima:</strong> Materiais abaixo da margem mínima de segurança!</p>
+                        <p><strong>🛑 Risco:</strong> Possibilidade iminente de parada da linha de montagem.</p>
+                    </div>
+                </div>
+
+                <div class="card alerta" style="border-top: 4px solid var(--warning);">
+                    <h3>Ponto de Pedido</h3>
+                    <div class="value" id="cardComprar">0</div>
+                    <div class="card-details" style="border-left-color: var(--warning);">
+                        <p><strong>🛒 Setor de Compras:</strong> Itens atingiram volume de reposição.</p>
+                        <p><strong>⏳ Lead Time:</strong> Recomenda-se abrir requisição de compra urgente.</p>
+                    </div>
+                </div>
+
             </div>
+
             <div class="main-layout">
                 <div class="panel">
-                    <h2>📦 Lançamento</h2>
-                    <input type="text" id="scannerInput" class="form-control" placeholder="Bipe aqui..." style="border:2px solid var(--primary); margin-bottom:10px;">
-                    <form onsubmit="handleManual(event)">
-                        <select id="movMaterial" class="form-control" required></select>
-                        <select id="movTipo" class="form-control"><option value="ENTRADA">📥 Entrada</option><option value="SAIDA">📤 Saída</option></select>
-                        <input type="number" id="movQtd" class="form-control" placeholder="Qtd" required>
-                        <button type="submit" class="btn">Confirmar</button>
+                    <h2>📦 Lançamento de Peças</h2>
+                    <div class="scanner-input-wrapper">
+                        <div class="form-group">
+                            <label style="color: var(--primary); font-weight: bold;">🛑 MODO BIPADOR / SCANNER ATIVO</label>
+                            <input type="text" id="scannerInput" class="form-control" placeholder="Bipe o código de barras ou QR Code do produto..." autocomplete="off" style="border-color: var(--primary); background: #FFF5F5; text-align: center;">
+                        </div>
+                    </div>
+                    <form id="formMovimentacao" onsubmit="handleManual(event)">
+                        <div class="form-group">
+                            <label>Selecionar Material</label>
+                            <select id="movMaterial" class="form-control" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Operação</label>
+                            <select id="movTipo" class="form-control">
+                                <option value="ENTRADA">📥 Entrada (+) Alimentar Estoque</option>
+                                <option value="SAIDA">📤 Saída (-) Consumo na Linha</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade de Unidades</label>
+                            <input type="number" id="movQtd" class="form-control" min="1" placeholder="Ex: 5" required>
+                        </div>
+                        <button type="submit" class="btn">Confirmar Movimentação</button>
                     </form>
                 </div>
-                <div class="panel"><canvas id="chartEstoque"></canvas></div>
+                
+                <div class="panel" style="display: flex; justify-content: center; align-items: center; background: #fafafa;">
+                    <div style="width: 100%; max-width: 290px;"><canvas id="chartEstoque"></canvas></div>
+                </div>
             </div>
         </div>
 
+        <!-- ABA 2: TABELA DE POSIÇÃO ATUAL -->
         <div id="tab-posicao" class="tab-content">
-            <div class="panel"><h2>📋 Inventário Atual</h2><table><thead><tr><th>Código</th><th>Material</th><th>Estoque</th><th>Min</th><th>Ponto</th><th>Status</th></tr></thead><tbody id="tbodyInventario"></tbody></table></div>
+            <div class="panel" style="margin-top: 0; padding: 20px;">
+                <h2>📋 Posição de Inventário Físico Atual</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Material / Componente</th>
+                                <th>Estoque Físico</th>
+                                <th>Min. Segurança</th>
+                                <th>Ponto de Pedido</th>
+                                <th>Status Operacional</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyInventario"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
+        <!-- ABA 3: HISTÓRICO DE MOVIMENTAÇÕES (NOVO) -->
         <div id="tab-historico" class="tab-content">
-            <div class="panel"><h2>📜 Histórico Recente</h2><table><thead><tr><th>Data/Hora</th><th>Operador</th><th>Item</th><th>Tipo</th><th>Qtd</th></tr></thead><tbody id="tbodyHistorico"></tbody></table></div>
+            <div class="panel" style="margin-top: 0; padding: 20px;">
+                <h2>📜 Histórico Recente de Movimentações</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Operador</th>
+                                <th>Item</th>
+                                <th>Tipo</th>
+                                <th>Qtd</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyHistorico">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
+        <!-- ABA 4: CADASTRO DE COLABORADORES -->
         <div id="tab-cadastro" class="tab-content">
-            <div class="panel"><h2>👥 Gestão de Usuários</h2><form onsubmit="handleCadastroUsuario(event)"><input type="text" id="cadNome" placeholder="Nome" required><input type="text" id="cadUser" placeholder="Login" required><input type="password" id="cadPass" placeholder="Senha" required><input type="text" id="cadCracha" placeholder="Crachá" required><select id="cadRole"><option value="operador">Operador</option><option value="admin">Admin</option></select><button type="submit" class="btn">Cadastrar</button></form><table><thead><tr><th>Funcionário</th><th>Login</th><th>Crachá</th><th>Nível</th><th>Ação</th></tr></thead><tbody id="tbodyUsuarios"></tbody></table></div>
+            <div class="panel" style="border-top: 4px solid var(--primary); margin-top: 0;">
+                <h2>👥 Gestão de Usuários e Crachás</h2>
+                <form id="formCadastroUsuario" onsubmit="handleCadastroUsuario(event)">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" id="cadNome" class="form-control" placeholder="Ex: Henny Aleff" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Usuário de Acesso</label>
+                            <input type="text" id="cadUser" class="form-control" placeholder="login.sobrenome" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Senha Manual</label>
+                            <input type="password" id="cadPass" class="form-control" placeholder="••••" required>
+                        </div>
+                        <div class="form-group" style="background: #f0fdf4; border: 1px dashed var(--success); padding: 5px; border-radius: 6px;">
+                            <label style="color: var(--success); font-weight: bold;">🪪 Bipar Código Crachá</label>
+                            <input type="text" id="cadCracha" class="form-control" placeholder="Bipe o crachá novo..." required autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>Perfil de Nível</label>
+                            <select id="cadRole" class="form-control">
+                                <option value="operador">Operador de Linha</option>
+                                <option value="admin">Administrador Geral</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success" style="width: auto; padding: 10px 30px;">Salvar Colaborador</button>
+                </form>
+
+                <div class="table-wrapper" style="margin-top: 25px;">
+                    <table style="margin-top: 0;">
+                        <thead>
+                            <tr>
+                                <th>Funcionário</th>
+                                <th>Login</th>
+                                <th>Etiqueta Crachá</th>
+                                <th>Nível</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyUsuarios"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- VINCULAÇÃO DOS ARQUIVOS JAVASCRIPT EXTERNOS -->
     <script src="dados.js"></script>
     <script src="script.js"></script>
 </body>

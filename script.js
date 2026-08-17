@@ -137,9 +137,7 @@ function movimentar(idx, tipo, qtd) {
     }
     materiais[idx].qtd += (tipo === 'ENTRADA' ? qtd : -qtd);
     
-    // Registra no histórico automaticamente
     salvarNoHistorico(materiais[idx].nome, tipo, qtd);
-    
     toast('Movimentação salva com sucesso!');
     render();
 }
@@ -167,25 +165,47 @@ function handleManual(e) {
     if (idx !== "") { movimentar(parseInt(idx), tipo, qtd); e.target.reset(); }
 }
 
-// --- USUÁRIOS ---
-function handleCadastroUsuario(e) {
+// --- USUÁRIOS (COM INTEGRAÇÃO SHEETDB) ---
+async function handleCadastroUsuario(e) {
     e.preventDefault();
+    
     const novoUsuario = {
-        nome: document.getElementById('cadNome').value,
-        user: document.getElementById('cadUser').value,
-        pass: document.getElementById('cadPass').value,
-        cracha: document.getElementById('cadCracha').value,
-        role: document.getElementById('cadRole').value
+        nome: document.getElementById('cadNome').value.trim(),
+        user: document.getElementById('cadUser').value.trim(),
+        pass: document.getElementById('cadPass').value.trim(),
+        cracha: document.getElementById('cadCracha').value.trim(),
+        role: document.getElementById('cadRole').value.trim()
     };
 
     let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
-    if (listaUsuarios.find(x => x.cracha === novoUsuario.cracha)) {
-        toast('Erro: Crachá já cadastrado!', 'error');
+    if (listaUsuarios.find(x => x.cracha === novoUsuario.cracha || x.user === novoUsuario.user)) {
+        toast('Erro: Usuário ou crachá já cadastrado localmente!', 'error');
         return;
     }
+
     listaUsuarios.push(novoUsuario);
     localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
-    toast('Colaborador cadastrado!');
+
+    try {
+        const API_URL = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: [novoUsuario] })
+        });
+
+        if (response.ok) {
+            toast('Colaborador cadastrado e salvo na planilha!');
+        } else {
+            toast('Salvo localmente, mas houve um erro ao enviar para a planilha.', 'error');
+        }
+    } catch (err) {
+        toast('Salvo localmente (sem conexão com a nuvem).', 'warning');
+    }
+
     e.target.reset();
     renderUsuarios();
 }
@@ -233,64 +253,3 @@ window.onload = () => {
     renderHistorico(); 
     if(scanInput) scanInput.focus(); 
 };
-// --- FUNÇÃO DE LOGIN / AUTENTICAÇÃO ---
-function fazerLogin(event) {
-    if (event) event.preventDefault();
-
-    // Pega os valores dos inputs manuais (ajuste os IDs se necessário no seu HTML)
-    const userField = document.getElementById('loginUser');
-    const passField = document.getElementById('loginPass');
-    
-    const userDigitado = userField ? userField.value.trim() : '';
-    const passDigitada = passField ? passField.value.trim() : '';
-
-    let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
-
-    // Se a lista estiver vazia, cria o admin padrão por segurança
-    if (listaUsuarios.length === 0) {
-        listaUsuarios = [
-            { user: "admin", pass: "123", nome: "Supervisor Administrativo", cracha: "CRAC-9999", role: "admin" }
-        ];
-        localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
-    }
-
-    // Valida se bate com o usuário/matrícula e senha OU com o código do crachá
-    const usuarioEncontrado = listaUsuarios.find(u => 
-        (u.user === userDigitado || u.cracha === userDigitado) && u.pass === passDigitada
-    );
-
-    if (usuarioEncontrado) {
-        sessionStorage.setItem('usuarioLogado', usuarioEncontrado.nome);
-        sessionStorage.setItem('usuarioRole', usuarioEncontrado.role || 'operador');
-        
-        toast('Login realizado com sucesso! Redirecionando...');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html';
-        }, 1000);
-    } else {
-        toast('Usuário ou senha inválidos!', 'error');
-    }
-}
-
-// --- SUPORTE A BIPPAGEM DE CRACHÁ NA TELA DE LOGIN ---
-const scannerCrachaLogin = document.getElementById('scannerCrachaLogin');
-if (scannerCrachaLogin) {
-    scannerCrachaLogin.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const crachaBipado = this.value.trim();
-            let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
-            
-            const usuarioEncontrado = listaUsuarios.find(u => u.cracha === crachaBipado || u.user === crachaBipado);
-
-            if (usuarioEncontrado) {
-                sessionStorage.setItem('usuarioLogado', usuarioEncontrado.nome);
-                sessionStorage.setItem('usuarioRole', usuarioEncontrado.role || 'operador');
-                window.location.href = 'dashboard.html';
-            } else {
-                toast('Crachá não reconhecido: ' + crachaBipado, 'error');
-                this.value = '';
-            }
-        }
-    });
-}

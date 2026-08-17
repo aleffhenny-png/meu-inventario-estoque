@@ -1,7 +1,5 @@
 // --- INICIALIZAÇÃO ---
 let materiais = JSON.parse(localStorage.getItem('INV_MATERIAIS_V2'));
-// Inicializa ou recupera o histórico
-let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
 
 const dadosCorrompidos = !Array.isArray(materiais) || (materiais.length > 0 && materiais[0].qtd === undefined);
 
@@ -13,20 +11,39 @@ if (dadosCorrompidos) {
 let chart = null;
 let currentTabId = 'tab-operacao';
 
-// --- FUNÇÕES DE HISTÓRICO (NOVO) ---
-function registrarHistorico(codigo, nome, tipo, qtd) {
+// --- FUNÇÕES DE HISTÓRICO ---
+function salvarNoHistorico(itemNome, tipo, qtd) {
+    let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
     const novoRegistro = {
         data: new Date().toLocaleString(),
         operador: sessionStorage.getItem('usuarioLogado') || 'Desconhecido',
-        codigo,
-        nome,
-        tipo, // 'ENTRADA' ou 'SAIDA'
-        qtd
+        item: itemNome,
+        tipo: tipo,
+        qtd: qtd
     };
-    historico.unshift(novoRegistro); // Adiciona no início da lista
-    // Mantém apenas os últimos 100 registros para não pesar o navegador
-    if (historico.length > 100) historico.pop();
+    
+    historico.unshift(novoRegistro);
+    if (historico.length > 50) historico.pop();
     localStorage.setItem('INV_HISTORICO_V2', JSON.stringify(historico));
+    renderHistorico();
+}
+
+function renderHistorico() {
+    const tbody = document.getElementById('tbodyHistorico');
+    if (!tbody) return;
+    
+    let historico = JSON.parse(localStorage.getItem('INV_HISTORICO_V2')) || [];
+    tbody.innerHTML = '';
+    
+    historico.forEach(h => {
+        tbody.innerHTML += `<tr>
+            <td>${h.data}</td>
+            <td>${h.operador}</td>
+            <td>${h.item}</td>
+            <td style="color: ${h.tipo === 'ENTRADA' ? '#10b981' : '#ef4444'}; font-weight: bold;">${h.tipo}</td>
+            <td>${h.qtd}</td>
+        </tr>`;
+    });
 }
 
 // --- FUNÇÕES DE INTERFACE ---
@@ -51,13 +68,14 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     
-    // Ajuste de classes dos botões
     const btns = document.querySelectorAll('.tab-btn');
-    btns.forEach(b => {
-        if(b.getAttribute('onclick').includes(tabId)) b.classList.add('active');
-    });
+    if (tabId === 'tab-operacao') btns[0].classList.add('active');
+    if (tabId === 'tab-posicao') btns[1].classList.add('active');
+    if (tabId === 'tab-historico') btns[2].classList.add('active');
+    if (tabId === 'tab-cadastro') btns[3].classList.add('active');
 
     if (tabId === 'tab-operacao') setTimeout(() => document.getElementById('scannerInput').focus(), 50);
+    if (tabId === 'tab-historico') renderHistorico();
 }
 
 // --- LÓGICA PRINCIPAL ---
@@ -87,6 +105,7 @@ function render() {
         const pp = Number(m.ponto || 0);
 
         let st = { t: 'OK', c: 'ok' };
+        
         if (qtd <= min) { st = { t: 'Crítico', c: 'critico' }; criticos++; }
         else if (qtd <= pp) { st = { t: 'Comprar', c: 'comprar' }; comprar++; }
         else { okCount++; }
@@ -107,6 +126,7 @@ function render() {
     if(document.getElementById('cardComprar')) document.getElementById('cardComprar').innerText = comprar;
     
     localStorage.setItem('INV_MATERIAIS_V2', JSON.stringify(materiais));
+    
     if (typeof renderChart === 'function') renderChart(okCount, comprar, criticos);
 }
 
@@ -117,13 +137,99 @@ function movimentar(idx, tipo, qtd) {
     }
     materiais[idx].qtd += (tipo === 'ENTRADA' ? qtd : -qtd);
     
-    // REGISTRA NO HISTÓRICO
-    registrarHistorico(materiais[idx].codigo, materiais[idx].nome, tipo, qtd);
+    // Registra no histórico automaticamente
+    salvarNoHistorico(materiais[idx].nome, tipo, qtd);
     
     toast('Movimentação salva com sucesso!');
     render();
 }
 
-// --- EVENTOS E DEMAIS FUNÇÕES ---
-// [Manter as funções de scanner, handleManual, CadastroUsuario, RenderUsuarios, ExcluirUsuario conforme estavam antes]
-// (Como o código estava grande, certifique-se de apenas substituir até aqui e manter o fim do seu arquivo)
+// --- EVENTOS ---
+const scanInput = document.getElementById('scannerInput');
+if (scanInput) {
+    scanInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const codigoBipado = this.value.trim();
+            const idx = materiais.findIndex(x => x.codigo === codigoBipado);
+            if (idx !== -1) { movimentar(idx, 'SAIDA', 1); }
+            else { toast('Item não cadastrado: ' + codigoBipado, 'error'); }
+            this.value = '';
+        }
+    });
+}
+
+function handleManual(e) {
+    e.preventDefault();
+    const idx = document.getElementById('movMaterial').value;
+    const tipo = document.getElementById('movTipo').value;
+    const qtd = parseInt(document.getElementById('movQtd').value);
+    if (idx !== "") { movimentar(parseInt(idx), tipo, qtd); e.target.reset(); }
+}
+
+// --- USUÁRIOS ---
+function handleCadastroUsuario(e) {
+    e.preventDefault();
+    const novoUsuario = {
+        nome: document.getElementById('cadNome').value,
+        user: document.getElementById('cadUser').value,
+        pass: document.getElementById('cadPass').value,
+        cracha: document.getElementById('cadCracha').value,
+        role: document.getElementById('cadRole').value
+    };
+
+    let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
+    if (listaUsuarios.find(x => x.cracha === novoUsuario.cracha)) {
+        toast('Erro: Crachá já cadastrado!', 'error');
+        return;
+    }
+    listaUsuarios.push(novoUsuario);
+    localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
+    toast('Colaborador cadastrado!');
+    e.target.reset();
+    renderUsuarios();
+}
+
+function renderUsuarios() {
+    const tbody = document.getElementById('tbodyUsuarios');
+    if (!tbody) return;
+    let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
+    tbody.innerHTML = '';
+    listaUsuarios.forEach((u, idx) => {
+        tbody.innerHTML += `<tr>
+            <td>${u.nome}</td>
+            <td>${u.user}</td>
+            <td>${u.cracha}</td>
+            <td>${u.role ? u.role.toUpperCase() : 'USER'}</td>
+            <td><button onclick="excluirUsuario(${idx})" style="color: #ef4444; cursor: pointer; border: none; background: none; font-weight: bold;">Excluir</button></td>
+        </tr>`;
+    });
+}
+
+function excluirUsuario(index) {
+    if (!confirm('Deseja excluir este colaborador?')) return;
+    let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
+    listaUsuarios.splice(index, 1);
+    localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
+    renderUsuarios();
+}
+
+// --- GRÁFICOS ---
+function renderChart(ok, comp, crit) {
+    const canvas = document.getElementById('chartEstoque');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['OK', 'Pedido', 'Crítico'], datasets: [{ data: [ok, comp, crit], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+window.onload = () => { 
+    render(); 
+    renderUsuarios(); 
+    renderHistorico(); 
+    if(scanInput) scanInput.focus(); 
+};

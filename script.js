@@ -233,3 +233,64 @@ window.onload = () => {
     renderHistorico(); 
     if(scanInput) scanInput.focus(); 
 };
+// --- FUNÇÃO DE LOGIN / AUTENTICAÇÃO ---
+function fazerLogin(event) {
+    if (event) event.preventDefault();
+
+    // Pega os valores dos inputs manuais (ajuste os IDs se necessário no seu HTML)
+    const userField = document.getElementById('loginUser');
+    const passField = document.getElementById('loginPass');
+    
+    const userDigitado = userField ? userField.value.trim() : '';
+    const passDigitada = passField ? passField.value.trim() : '';
+
+    let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
+
+    // Se a lista estiver vazia, cria o admin padrão por segurança
+    if (listaUsuarios.length === 0) {
+        listaUsuarios = [
+            { user: "admin", pass: "123", nome: "Supervisor Administrativo", cracha: "CRAC-9999", role: "admin" }
+        ];
+        localStorage.setItem('INV_USUARIOS_V2', JSON.stringify(listaUsuarios));
+    }
+
+    // Valida se bate com o usuário/matrícula e senha OU com o código do crachá
+    const usuarioEncontrado = listaUsuarios.find(u => 
+        (u.user === userDigitado || u.cracha === userDigitado) && u.pass === passDigitada
+    );
+
+    if (usuarioEncontrado) {
+        sessionStorage.setItem('usuarioLogado', usuarioEncontrado.nome);
+        sessionStorage.setItem('usuarioRole', usuarioEncontrado.role || 'operador');
+        
+        toast('Login realizado com sucesso! Redirecionando...');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 1000);
+    } else {
+        toast('Usuário ou senha inválidos!', 'error');
+    }
+}
+
+// --- SUPORTE A BIPPAGEM DE CRACHÁ NA TELA DE LOGIN ---
+const scannerCrachaLogin = document.getElementById('scannerCrachaLogin');
+if (scannerCrachaLogin) {
+    scannerCrachaLogin.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const crachaBipado = this.value.trim();
+            let listaUsuarios = JSON.parse(localStorage.getItem('INV_USUARIOS_V2')) || [];
+            
+            const usuarioEncontrado = listaUsuarios.find(u => u.cracha === crachaBipado || u.user === crachaBipado);
+
+            if (usuarioEncontrado) {
+                sessionStorage.setItem('usuarioLogado', usuarioEncontrado.nome);
+                sessionStorage.setItem('usuarioRole', usuarioEncontrado.role || 'operador');
+                window.location.href = 'dashboard.html';
+            } else {
+                toast('Crachá não reconhecido: ' + crachaBipado, 'error');
+                this.value = '';
+            }
+        }
+    });
+}

@@ -13,7 +13,7 @@ let currentTabId = 'tab-operacao';
 
 // --- ENDPOINTS DA NUVEM (SHEETDB) ---
 const API_URL_USUARIOS = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
-const API_URL_HISTORICO = 'https://sheetdb.io/api/v1/tz5nrqru4mjab?sheet=Historico';
+const API_URL_HISTORICO = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr?sheet=Historico';
 
 // --- FUNÇÕES DE HISTÓRICO (COM NUVEM E SINCRONIZAÇÃO) ---
 async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {

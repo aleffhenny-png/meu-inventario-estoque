@@ -13,7 +13,7 @@ let currentTabId = 'tab-operacao';
 
 // --- ENDPOINTS DA NUVEM (SHEETDB) ---
 const API_URL_USUARIOS = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr';
-const API_URL_HISTORICO = 'https://sheetdb.io/api/v1/7d5k8fk5rw4nr?sheet=Historico';
+const API_URL_HISTORICO = 'https://sheetdb.io/api/v1/tz5nrqru4mjab';
 
 // --- FUNÇÕES DE HISTÓRICO (COM NUVEM E SINCRONIZAÇÃO) ---
 async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
@@ -33,7 +33,7 @@ async function salvarNoHistorico(itemNome, tipo, qtd, obs = '') {
     localStorage.setItem('INV_HISTORICO_V2', JSON.stringify(historico));
     renderHistorico();
 
-    // Envia o registro para a aba de Histórico na nuvem
+    // Envia o registro para a planilha de Histórico na nuvem
     try {
         await fetch(API_URL_HISTORICO, {
             method: 'POST',
